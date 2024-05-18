@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
+          integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="../static/styles.css">
+</head>
+<body>
+<header>
+    <div id="logo">
+        <h1>Train Info</h1>
+    </div>
+</header>
+<div id="content">
+    <div id="map-block">
+        <div id="train-map"></div>
+    </div>
+    <div id="table-section">
+        <div id="table-container">
+            <table class="table table-striped">
+                <div id="table-header"></div>
+                <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">НОМЕР ПОЇЗДА</th>
+                    <th scope="col">ПУНКТИ ПРИЗНАЧЕННЯ</th>
+                    <th scope="col">ЧАС ВІДПРАВЛЕННЯ</th>
+                </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<footer>&copy; Copyright</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js"
+        integrity="sha384-cs/chFZiN24E4KMATLdqdvsezGxaGsi4hLGOzlXwp5UZB1LY//20VyM2taTB4QvJ"
+        crossorigin="anonymous"></script>
+<script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+<script src="js/table_map.js"></script>
+<script src="js/mapa.js"></script>
+<script src="js/table.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', loadCitiesData);
+    document.addEventListener('DOMContentLoaded', loadRoutesData);
+</script>
+<script>
+    function highlightRoute(cities, highlight) {
+        cities.forEach(city => {
+            cy.elements().nodes(`[id="${city.id}"]`).forEach(node => {
+                node.style({
+                    'background-color': highlight ? '#ff0000' : '#007bff'
+                });
+            });
+
+            if (cities.length > 1) {
+                cities.reduce((prevCity, currentCity) => {
+                    cy.elements().edges(`[source="${prevCity.id}"][target="${currentCity.id}"]`).style({
+                        'line-color': highlight ? '#ff0000' : '#d3d3d3',
+                        'target-arrow-color': highlight ? '#ff0000' : '#d3d3d3'
+                    });
+                    return currentCity;
+                });
+            }
+        });
+    }
+</script>
+</body>
+</html>
