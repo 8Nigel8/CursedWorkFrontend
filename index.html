@@ -1,13 +1,157 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/html">
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
           integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-    <link rel="stylesheet" href="../static/styles.css">
 </head>
 <body>
+<style>
+    body {
+        background-color: gainsboro;
+        padding: 0;
+        margin: 0;
+
+    }
+
+    header {
+        background-color: blue;
+    }
+
+    h1, h2 {
+        padding: 0;
+        margin: 0;
+        color: #00FFF0;
+    }
+
+    h2 {
+        color: #C9FF2F;
+        font-size: 20px;
+        font-family: Inter, serif;
+    }
+
+    #content {
+        display: flex;
+        margin-left: 3%;
+        margin-right: 3%;
+        background-color: #fff;
+        height: 600px;
+        align-items: center;
+    }
+
+    #logo {
+        width: 180px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: flex-end;
+    }
+
+    #table-container {
+        padding-left: 10px;
+        width: 95%;
+        height: 93%;
+        overflow-y: auto;
+        margin-top: -16px;
+    }
+
+    /* Приховування повзунка для Webkit браузерів (Chrome, Safari) */
+    #table-container::-webkit-scrollbar {
+        width: 0px;  /* Установка ширини повзунка в 0 */
+        background: transparent;  /* Прозорий фон */
+    }
+
+    /* Приховування повзунка для Firefox */
+    #table-container {
+        scrollbar-width: none;  /* Установка ширини повзунка в none */
+        -ms-overflow-style: none;  /* Приховування повзунка для IE та Edge */
+    }
+
+    #table-container::-webkit-scrollbar-thumb {
+        background: transparent;  /* Прозорий фон для "хваталки" повзунка */
+    }
+
+    #table-container::-webkit-scrollbar-track {
+        background: transparent;  /* Прозорий фон для треку повзунка */
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    thead th {
+        position: sticky;
+        top: 0;
+        background-color: #00A3FF; /* keep header color consistent */
+    }
+
+    table th, table td {
+        text-align: left;
+        padding: 8px;
+        border: 1px solid #dddddd;
+    }
+
+    footer {
+        display: flex;
+        justify-content: center;
+        font-size: 14px;
+    }
+    #crud-buttons{
+        margin-top: 15px;
+    }
+    #train-map{
+        width: 100%;
+        height: 90%;
+        display: inline-block;
+        left: 0;
+        background-color: #ececec;
+    }
+    #map-block{
+        margin-left: 30px;
+        position:static;
+        padding-right: 10px;
+        width: 50%;
+        height: 90%;
+        display: flex;
+        flex-direction: column;
+    }
+    #table-section{
+        width: 50%;
+        display: flex;
+        flex-direction: column;
+        height: 84.5%;
+        justify-content: space-between;
+    }
+    #table-buttons-group{
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .table-button{
+        margin-left: 5px;
+        margin-right: 5px;
+
+    }
+    .table th:nth-child(1), .table td:nth-child(1) {
+        width: 8%;
+        max-width: 8%/* Ширина для номера */
+    }
+    .table th:nth-child(2), .table td:nth-child(2) {
+        width: 15%; /* Ширина для номера потяга */
+    }
+    .table th:nth-child(3), .table td:nth-child(3) {
+        width: 15%; /* Ширина для номера потяга */
+    }
+    .table th:nth-child(4), .table td:nth-child(4) {
+        width: 32%; /* Ширина для списку міст */
+    }
+    .table th:nth-child(5), .table td:nth-child(5) {
+        width: 30%; /* Ширина для часу відправлення */
+    }
+</style>
 <header>
     <div id="logo">
         <h1>Train Info</h1>
@@ -290,6 +434,307 @@
                     return currentCity;
                 });
             }
+        });
+    }
+</script>
+<script>
+    let cy = null;
+    let selectedNode = null
+    let mode = 'view'
+    let editedNodeID = null
+    let editedNodeName = null
+    let newCities = []
+    let newConnections = []
+
+    function createMap(elements) {
+
+        cy = cytoscape({
+            container: document.getElementById('train-map'), // елемент, в якому буде мапа
+            elements: elements,
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'label': 'data(name)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'background-color': '#007bff'
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 3,
+                        'line-color': '#d3d3d3',
+                        'curve-style': 'bezier'
+                    }
+                }
+            ],
+            layout: {
+                name: 'preset'
+            }
+        });
+        cy.on('tap', 'node', function (evt) {
+            const node = evt.target;
+            console.log(mode)
+            console.log(editedNodeID);
+            if (mode === "view") {
+                if (selectedNode === node.id() && editedNodeID === null) {
+                    node.style('background-color', '#007bff');  // Скидання кольору
+                    selectedNode = null;
+                    loadRoutesData();  // Завантаження всіх маршрутів
+                } else {
+                    if (selectedNode) {
+                        cy.getElementById(selectedNode).style('background-color', '#007bff');  // Скидання коліру попереднього вузла
+                    }
+                    node.style('background-color', '#ff0000');  // Зміна кольору на червоний
+                    selectedNode = node.id();
+                    filterTrainsByCity(node.id());  // Фільтрація маршрутів
+                }
+            }
+
+            if (mode === "addEdges" && editedNodeID !== null && evt.target.id !== editedNodeID) {
+
+                cy.add({
+                    group: 'edges',
+                    data: {
+                        id: `edge${cy.edges().length + 1}`,
+                        source: editedNodeID,
+                        target: evt.target.id()
+                    }
+                });
+                newConnections.push({
+                    'cityAName': editedNodeName,
+                    'cityBName': evt.target._private.data.name
+                })
+
+            }
+
+        });
+        cy.on('tap', function (event) {
+            console.log(mode)
+            if (mode === "add" && event.target === cy) {
+                let nodeName = promptForNodeName()
+                let newNode = cy.add({
+                    group: 'nodes',
+                    data: {name: nodeName, id: `node${cy.nodes().length + 1}`},
+                    style: {'label': nodeName},
+                    position: {x: event.position.x, y: event.position.y}
+                });
+                newCities.push({
+                    'name': nodeName,
+                    'point': {
+                        'x': event.position.x / 100,
+                        'y': event.position.y / 100
+                    }
+                })
+                editedNodeID = newNode.id();
+                editedNodeName = nodeName;
+                mode = "addEdges"; // Switch to add edges mode
+            }
+        });
+    }
+
+
+    function loadCitiesData() {
+        fetch('http://localhost:8080/cities/get_all')
+            .then(response => response.json())
+            .then(data => {
+                var elements = [];
+                data.forEach(city => {
+                    elements.push({
+                        group: 'nodes',
+                        data: {
+                            id: city.id.toString(),
+                            name: city.name,
+                            x: city.point.x,
+                            y: city.point.y
+                        },
+                        position: {
+                            x: city.point.x * 100,
+                            y: city.point.y * 100
+                        }
+                    });
+                    city.citiesIDs.forEach(connectedCityId => {
+                        elements.push({
+                            group: 'edges',
+                            data: {
+                                source: city.id.toString(),
+                                target: connectedCityId.toString()
+                            }
+                        });
+                    });
+                });
+                createMap(elements);
+            })
+            .catch(error => console.error('Error loading the cities:', error));
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const editButton = document.getElementById('map-edit-btn');
+        const trainMapContainer = document.getElementById('train-map');
+
+        // Create buttons dynamically and hide them initially
+        const addButton = document.createElement('button');
+        addButton.textContent = 'Додати';
+        addButton.style.display = 'none';
+        addButton.style.position = 'absolute';
+        addButton.style.left = '10px'
+        addButton.style.top = '10px'
+        addButton.style.zIndex = '10'
+        addButton.classList.add("btn");
+        addButton.classList.add("btn-primary");
+        addButton.addEventListener('click', function () {
+            console.log(mode)
+            if (mode === "edit") {
+                mode = "add";
+                addButton.textContent = "Готово";
+                // Enable adding nodes mode
+
+            } else if (mode.startsWith("add")) {
+                mode = "edit";
+                addButton.textContent = "Додати";
+                saveCities()
+
+            }
+        });
+        trainMapContainer.appendChild(addButton);
+
+
+        editButton.addEventListener('click', function () {
+            if (mode === "view") {
+                mode = "edit"
+                editButton.textContent = "Закінчити редагування";
+                // Show the dynamic buttons
+                addButton.style.display = 'inline';
+                // Enable node movement
+                cy.nodes().grabbable(true);
+            } else {
+                console.log(newCities)
+                mode = "view";
+                editButton.textContent = "Редагувати";
+                // Hide the dynamic buttons
+                addButton.style.display = 'none';
+                // Disable node movement
+            }
+        });
+    });
+
+    function promptForNodeName() {
+        return prompt("Введіть назву міста:", "Нове місто");
+    }
+
+    function saveCities() {
+        fetch('http://localhost:8080/cities/save_all', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(newCities)
+        })
+            .then(response => {
+                if (response.ok) {
+                    return
+                }
+                throw new Error('Network response was not ok.');
+            })
+            .then(data => {
+                console.log('Data saved successfully:', data);
+                newCities = []
+                saveEdges()
+            })
+            .catch(error => {
+                console.error('Error saving cities:', error);
+            });
+
+    }
+    function saveEdges() {
+        fetch('http://localhost:8080/city_connections/save_all', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(newConnections)
+        })
+            .then(response => {
+                if (response.ok) {
+                    return
+                }
+                throw new Error('Network response was not ok.');
+            })
+            .then(data => {
+                console.log('Data saved successfully:', data);
+                newConnections = []
+            })
+            .catch(error => {
+                console.error('Error saving cities:', error);
+            });
+    }
+</script>
+<script>
+    function loadRoutesData() {
+        fetch('http://localhost:8080/route/get_all')
+            .then(response => response.json())
+            .then(data => {
+                tableGenerate(data)
+            })
+            .catch(error => console.error('Error loading the routes:', error));
+    }
+
+    function filterTrainsByCity(cityId) {
+        fetch('http://localhost:8080/route/get_all')  // Або використовуйте збережені дані, якщо вони не змінюються
+            .then(response => response.json())
+            .then(data => {
+                var filteredRoutes = data.filter(route => {
+                    return route.cities.some(city => city.id.toString() === cityId);
+                });
+                tableGenerate(filteredRoutes)
+            })
+            .catch(error => console.error('Error loading filtered routes:', error));
+    }
+
+    function updateTable(data) {
+        const tableBody = document.querySelector('#table-container tbody');
+        tableBody.innerHTML = '';
+        console.log(data)
+        data.forEach((route, index) => {
+            const cities = route.cities.map(city => city.name).join(', ');
+            const row = document.createElement('tr');
+            row.innerHTML = `<th scope="row">${index + 1}</th>
+                         <td>${route.train.trainNumber}</td>
+                         <td>${route.train.type}</td>
+                         <td>${cities || 'No cities'}</td>
+                         <td>${new Date(route.departureTime).toLocaleString('uk-UA', {timeZone: 'Europe/Kiev'})}</td>`;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function loadAllRoutes() {
+        let routes = null
+        fetch('http://localhost:8080/route/get_all')
+            .then(response => response.json())
+            .then(data => {
+                routes = (data);
+            })
+            .catch(error => console.error('Error loading all routes:', error));
+        return routes
+    }
+
+    function tableGenerate(routes) {
+        const tableBody = document.querySelector('#table-container tbody');
+        tableBody.innerHTML = '';
+        routes.forEach((route, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `<th scope="row">${index + 1}</th>
+                                 <td>${route.train.trainNumber}</td>
+                                 <td>${route.train.type}</td>
+                                 <td>${route.cities.map(city => city.name).join(', ')}</td>
+                                 <td>${new Date(route.departureTime).toLocaleString('uk-UA')}</td>`;
+            tableBody.appendChild(row);
+
+            row.addEventListener('mouseenter', () => highlightRoute(route.cities, true));
+            row.addEventListener('mouseleave', () => highlightRoute(route.cities, false));
+
         });
     }
 </script>
