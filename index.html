@@ -207,6 +207,10 @@
                         </div>
                     </div>
                 </div>
+<!--                <div class="form-group">-->
+<!--                    <label for="departureCity">Пункт відправлення</label>-->
+<!--                    <div id="departureCity" class="mb-2"></div>-->
+<!--                </div>-->
                 <div class="form-group">
                     <label for="destination">Пункти призначення</label>
                     <div id="selectedCities" class="mb-2"></div>
@@ -250,7 +254,76 @@
         </div>
     </div>
 </div>
+<script>
+    function loadTrainNumbers() {
+        fetch('http://localhost:8080/admin/get_all')
+            .then(response => response.json())
+            .then(data => {
+                const trainNumberSelect = document.getElementById('trainNumber');
+                trainNumberSelect.innerHTML = ''; // Очищення списку
+                data.forEach(train => {
+                    const option = document.createElement('option');
+                    option.value = train.id;
+                    option.text = `${train.trainNumber} (${train.type})`;
+                    trainNumberSelect.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching train numbers:', error));
+    }
+    document.getElementById('saveTrainButton').addEventListener('click', function () {
+        const trainData = {
+            trainNumber: document.getElementById('newTrainNumber').value,
+            type: document.getElementById('newTrainType').value
+        };
 
+        fetch('http://localhost:8080/trains', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(trainData)
+        })
+            .then(data => {
+                trainModal.style.display = 'none';
+                // Оновіть список потягів після успішного збереження
+                loadTrainNumbers();
+            })
+            .catch(error => console.error('Error saving train:', error));
+    });
+    function loadCitiesData() {
+        fetch('http://localhost:8080/cities/get_all')
+            .then(response => response.json())
+            .then(data => {
+                var elements = [];
+                data.forEach(city => {
+                    elements.push({
+                        group: 'nodes',
+                        data: {
+                            id: city.id.toString(),
+                            name: city.name,
+                            x: city.point.x,
+                            y: city.point.y
+                        },
+                        position: {
+                            x: city.point.x * 100,
+                            y: city.point.y * 100
+                        }
+                    });
+                    city.citiesIDs.forEach(connectedCityId => {
+                        elements.push({
+                            group: 'edges',
+                            data: {
+                                source: city.id.toString(),
+                                target: connectedCityId.toString()
+                            }
+                        });
+                    });
+                });
+                createMap(elements);
+            })
+            .catch(error => console.error('Error loading the cities:', error));
+    }
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js"
         integrity="sha384-cs/chFZiN24E4KMATLdqdvsezGxaGsi4hLGOzlXwp5UZB1LY//20VyM2taTB4QvJ"
         crossorigin="anonymous"></script>
@@ -258,14 +331,82 @@
 <script src="js/mapa.js"></script>
 <script src="js/table.js"></script>
 <script>
+    const modal = document.getElementById('addRouteModal');
+    const trainModal = document.getElementById('addTrainModal');
+    const closeModalElements = document.querySelectorAll('.close, #closeModal, #closeTrainModal');
+
+    function loadRoutesData() {
+        fetch('http://localhost:8080/route/get_all')
+            .then(response => response.json())
+            .then(data => {
+                tableGenerate(data)
+            })
+            .catch(error => console.error('Error loading the routes:', error));
+    }
+
+    function filterTrainsByCity(cityId) {
+        fetch('http://localhost:8080/route/get_all')  // Або використовуйте збережені дані, якщо вони не змінюються
+            .then(response => response.json())
+            .then(data => {
+                var filteredRoutes = data.filter(route => {
+                    return route.cities.some(city => city.id.toString() === cityId);
+                });
+                tableGenerate(filteredRoutes)
+            })
+            .catch(error => console.error('Error loading filtered routes:', error));
+    }
+
+    function updateTable(data) {
+        const tableBody = document.querySelector('#table-container tbody');
+        tableBody.innerHTML = '';
+        console.log(data)
+        data.forEach((route, index) => {
+            const cities = route.cities.map(city => city.name).join(', ');
+            const row = document.createElement('tr');
+            row.innerHTML = `<th scope="row">${index + 1}</th>
+                         <td>${route.train.trainNumber}</td>
+                         <td>${route.train.type}</td>
+                         <td>${cities || 'No cities'}</td>
+                         <td>${new Date(route.departureTime).toLocaleString('uk-UA', {timeZone: 'Europe/Kiev'})}</td>`;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function loadAllRoutes() {
+        let routes = null
+        fetch('http://localhost:8080/route/get_all')
+            .then(response => response.json())
+            .then(data => {
+                routes = (data);
+            })
+            .catch(error => console.error('Error loading all routes:', error));
+        return routes
+    }
+
+    function tableGenerate(routes) {
+        const tableBody = document.querySelector('#table-container tbody');
+        tableBody.innerHTML = '';
+        routes.forEach((route, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `<th scope="row">${index + 1}</th>
+                                 <td>${route.train.trainNumber}</td>
+                                 <td>${route.train.type}</td>
+                                 <td>${route.cities.map(city => city.name).join(', ')}</td>
+                                 <td>${new Date(route.departureTime).toLocaleString('uk-UA')}</td>`;
+            tableBody.appendChild(row);
+
+            row.addEventListener('mouseenter', () => highlightRoute(route.cities, true));
+            row.addEventListener('mouseleave', () => highlightRoute(route.cities, false));
+
+        });
+    }
+</script>
+<script>
     document.addEventListener('DOMContentLoaded', loadCitiesData);
     document.addEventListener('DOMContentLoaded', loadRoutesData);
 </script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const modal = document.getElementById('addRouteModal');
-        const trainModal = document.getElementById('addTrainModal');
-        const closeModalElements = document.querySelectorAll('.close, #closeModal, #closeTrainModal');
 
         // Встановлення мінімальної дати для дати відправлення (лише майбутні дати)
         const today = new Date().toISOString().split('T')[0];
@@ -274,6 +415,22 @@
         // Обробник натискання кнопки "Додати маршрут"
         document.getElementById('add-route-button').addEventListener('click', function () {
             modal.style.display = 'block';
+            fetch('http://localhost:8080/cities/get_lazy_all')
+                .then(response => response.json())
+                .then(data => {
+                    window.availableCities = data;
+                })
+                .catch(error => console.error('Error fetching cities:', error));
+            const citySelect = document.createElement('select');
+            citySelect.classList.add('form-control', 'mb-2');
+            // citySelect.classList.add('departureCity-row');
+            window.availableCities.forEach(city => {
+                const option = document.createElement('option');
+                option.value = city.id;
+                option.text = city.name;
+                citySelect.appendChild(option);
+            });
+            document.getElementById('departureCity').appendChild(citySelect);
         });
 
         // Обробник натискання кнопки "Додати поїзд"
@@ -350,7 +507,6 @@
             cityRow.appendChild(removeButton);
 
             document.getElementById('selectedCities').appendChild(cityRow);
-
             removeButton.addEventListener('click', function () {
                 cityRow.remove();
             });
@@ -364,13 +520,16 @@
             document.querySelectorAll('.city-row select').forEach(function (select) {
                 cities.push({ id: select.value });
             });
-
+            // let departureCity = 0;
+            // document.querySelectorAll('.departureCity-row').forEach(function (select) {
+            //     departureCity={ id: select.value };
+            // });
             const departureTimeValue = document.getElementById('departureTime').value;
             const departureTime = new Date(departureTimeValue);
             const now = new Date();
 
-            if (cities.length < 2) {
-                alert('Ви повинні додати як мінімум два міста.');
+            if (cities.length < 1) {
+                alert('Ви повинні додати як мінімум одне місто.');
                 return;
             }
 
@@ -384,7 +543,8 @@
                     id: document.getElementById('trainNumber').value
                 },
                 cities: cities,
-                departureTime: formatDate(departureTimeValue)
+                departureTime: formatDate(departureTimeValue),
+                // departureCity:departureCity
             };
 
             fetch('http://localhost:8080/route', {
@@ -536,39 +696,7 @@
     }
 
 
-    function loadCitiesData() {
-        fetch('http://localhost:8080/cities/get_all')
-            .then(response => response.json())
-            .then(data => {
-                var elements = [];
-                data.forEach(city => {
-                    elements.push({
-                        group: 'nodes',
-                        data: {
-                            id: city.id.toString(),
-                            name: city.name,
-                            x: city.point.x,
-                            y: city.point.y
-                        },
-                        position: {
-                            x: city.point.x * 100,
-                            y: city.point.y * 100
-                        }
-                    });
-                    city.citiesIDs.forEach(connectedCityId => {
-                        elements.push({
-                            group: 'edges',
-                            data: {
-                                source: city.id.toString(),
-                                target: connectedCityId.toString()
-                            }
-                        });
-                    });
-                });
-                createMap(elements);
-            })
-            .catch(error => console.error('Error loading the cities:', error));
-    }
+
 
     document.addEventListener('DOMContentLoaded', function () {
         const editButton = document.getElementById('map-edit-btn');
@@ -671,72 +799,6 @@
             });
     }
 </script>
-<script>
-    function loadRoutesData() {
-        fetch('http://localhost:8080/route/get_all')
-            .then(response => response.json())
-            .then(data => {
-                tableGenerate(data)
-            })
-            .catch(error => console.error('Error loading the routes:', error));
-    }
 
-    function filterTrainsByCity(cityId) {
-        fetch('http://localhost:8080/route/get_all')  // Або використовуйте збережені дані, якщо вони не змінюються
-            .then(response => response.json())
-            .then(data => {
-                var filteredRoutes = data.filter(route => {
-                    return route.cities.some(city => city.id.toString() === cityId);
-                });
-                tableGenerate(filteredRoutes)
-            })
-            .catch(error => console.error('Error loading filtered routes:', error));
-    }
-
-    function updateTable(data) {
-        const tableBody = document.querySelector('#table-container tbody');
-        tableBody.innerHTML = '';
-        console.log(data)
-        data.forEach((route, index) => {
-            const cities = route.cities.map(city => city.name).join(', ');
-            const row = document.createElement('tr');
-            row.innerHTML = `<th scope="row">${index + 1}</th>
-                         <td>${route.train.trainNumber}</td>
-                         <td>${route.train.type}</td>
-                         <td>${cities || 'No cities'}</td>
-                         <td>${new Date(route.departureTime).toLocaleString('uk-UA', {timeZone: 'Europe/Kiev'})}</td>`;
-            tableBody.appendChild(row);
-        });
-    }
-
-    function loadAllRoutes() {
-        let routes = null
-        fetch('http://localhost:8080/route/get_all')
-            .then(response => response.json())
-            .then(data => {
-                routes = (data);
-            })
-            .catch(error => console.error('Error loading all routes:', error));
-        return routes
-    }
-
-    function tableGenerate(routes) {
-        const tableBody = document.querySelector('#table-container tbody');
-        tableBody.innerHTML = '';
-        routes.forEach((route, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `<th scope="row">${index + 1}</th>
-                                 <td>${route.train.trainNumber}</td>
-                                 <td>${route.train.type}</td>
-                                 <td>${route.cities.map(city => city.name).join(', ')}</td>
-                                 <td>${new Date(route.departureTime).toLocaleString('uk-UA')}</td>`;
-            tableBody.appendChild(row);
-
-            row.addEventListener('mouseenter', () => highlightRoute(route.cities, true));
-            row.addEventListener('mouseleave', () => highlightRoute(route.cities, false));
-
-        });
-    }
-</script>
 </body>
 </html>
